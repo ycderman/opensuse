@@ -64,7 +64,7 @@ any display manager service.
     -DINSTALL_PAM_CONFIGURATION=ON \
     -DPAM_OS_CONFIGURATION=suse \
     -DPAM_CONFIG_DIR=%{_prefix}/lib/pam.d
-cmake --build build --parallel 2
+cmake --build . --parallel 2
 
 %install
 DESTDIR=%{buildroot} cmake --install build
