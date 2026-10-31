@@ -27,7 +27,7 @@ jobs:
       build: ${{ steps.detect.outputs.build }}
     steps:
       - name: Checkout packaging and scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Query official KDE stable releases and compare published version
         id: detect
@@ -56,7 +56,7 @@ jobs:
     container:
       image: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build official signed KDE sources into Tumbleweed RPM
         shell: bash
@@ -65,7 +65,7 @@ jobs:
         run: bash scripts/build.sh "$VERSION"
 
       - name: Upload RPM and verification logs independently of publish
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plasma-login-manager-tumbleweed-${{ needs.check.outputs.version }}
           path: out/
@@ -87,7 +87,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install RPM repository and signing utilities
         shell: bash
@@ -98,7 +98,7 @@ jobs:
             rpm rpm-build createrepo_c gpg2 coreutils findutils
 
       - name: Download verified RPM artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: plasma-login-manager-tumbleweed-${{ needs.check.outputs.version }}
           path: out
@@ -109,10 +109,10 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: bash scripts/repo.sh out site
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
 
       - name: Deploy GitHub Pages
         id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
