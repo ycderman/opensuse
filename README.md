@@ -51,7 +51,7 @@ ls /usr/share/wayland-sessions/
 curl -fsSLo /tmp/opensuse-plm.asc https://ycderman.github.io/opensuse/key.asc
 gpg --show-keys --with-fingerprint /tmp/opensuse-plm.asc
 sudo rpm --import /tmp/opensuse-plm.asc
-sudo zypper addrepo --refresh https://ycderman.github.io/opensuse/ opensuse-plm
+sudo zypper addrepo https://ycderman.github.io/opensuse/opensuse-plm.repo
 sudo zypper refresh opensuse-plm
 sudo zypper install --no-recommends plasma-login-manager-local
 sudo systemd-sysusers /usr/lib/sysusers.d/plasmalogin.conf
