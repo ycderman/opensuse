@@ -1,3 +1,4 @@
+%global debug_package %{nil}
 Name:           plasma-login-manager-local
 Version:        %{?plm_version}%{!?plm_version:6.8.2}
 Release:        1%{?dist}
