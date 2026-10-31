@@ -13,11 +13,21 @@ export GNUPGHOME
 GNUPGHOME="$(mktemp -d)"
 chmod 700 "$GNUPGHOME"
 trap 'gpgconf --kill gpg-agent >/dev/null 2>&1 || :; rm -rf "$GNUPGHOME"' EXIT
-printf '%s\n' "$SIGNING_KEY" | gpg --batch --import
+# GnuPG may import a valid secret key while returning status 2 due to
+# noncritical ASCII-armor header formatting. Trust neither that status nor
+# the import message: accept only the pinned key, then require valid signatures.
+if ! printf '%s\n' "$SIGNING_KEY" | gpg --batch --import; then
+  echo "GPG reported an import warning; checking the pinned private key and signatures." >&2
+fi
 mapfile -t fingerprints < <(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" {print $10}')
 test "${#fingerprints[@]}" -eq 1 || { echo "SIGNING_KEY must contain exactly one signing identity" >&2; exit 1; }
 fingerprint="${fingerprints[0]}"
-test -n "$fingerprint"
+expected_fingerprint="08E3AB902A99F9CE08A45C48871EBF2257B603F4"
+test "$fingerprint" = "$expected_fingerprint" || {
+  echo "Refusing to sign with an unknown private key" >&2
+  exit 1
+}
+gpg --batch --list-secret-keys "$fingerprint" >/dev/null
 
 mkdir -p "$site/x86_64"
 gpg --armor --export "$fingerprint" > "$site/key.asc"
