@@ -1,0 +1,118 @@
+name: Build and publish Plasma Login Manager
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build.yml"
+      - "scripts/**"
+      - "packaging/**"
+      - "README.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plasma-login-manager-rpm-publish
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      build: ${{ steps.detect.outputs.build }}
+    steps:
+      - name: Checkout packaging and scripts
+        uses: actions/checkout@v4
+
+      - name: Query official KDE stable releases and compare published version
+        id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python3 scripts/latest.py)"
+          published="$(curl -fsSL --max-time 15 https://ycderman.github.io/opensuse/version || true)"
+          should_build=true
+          if [[ "$EVENT" == "schedule" && "$version" == "$published" ]]; then
+            should_build=false
+          fi
+          {
+            echo "version=$version"
+            echo "build=$should_build"
+          } >> "$GITHUB_OUTPUT"
+          echo "Latest KDE: $version / Published: ${published:-none} / Rebuild: $should_build"
+
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    container:
+      image: registry.opensuse.org/opensuse/tumbleweed:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build official signed KDE sources into Tumbleweed RPM
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: bash scripts/build.sh "$VERSION"
+
+      - name: Upload RPM and verification logs independently of publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: plasma-login-manager-tumbleweed-${{ needs.check.outputs.version }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: [check, build]
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: registry.opensuse.org/opensuse/tumbleweed:latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RPM repository and signing utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          zypper --non-interactive --gpg-auto-import-keys refresh
+          zypper --non-interactive install --no-recommends \
+            rpm rpm-build createrepo_c gpg2 coreutils findutils
+
+      - name: Download verified RPM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plasma-login-manager-tumbleweed-${{ needs.check.outputs.version }}
+          path: out
+
+      - name: Sign RPM and publishable RPM-MD repository
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: bash scripts/repo.sh out site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
